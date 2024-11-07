@@ -140,6 +140,11 @@ permissions and limitations under the License.
                             </thead>
                             <tbody id="tbody-s3objects"></tbody>
                         </table>
+                        <!-- Preview Area -->
+                        <div id="preview-wrapper" style="padding: 15px; border-top: 1px solid #ddd;">
+                            <h4>File Preview:</h4>
+                            <div id="file-preview" style="white-space: pre-wrap; overflow-wrap: break-word;"></div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -364,6 +369,7 @@ permissions and limitations under the License.
 
     function s3draw(data, complete) {
         $('li.li-bucket').remove();
+        document.getElementById('file-preview').textContent = '';
         folder2breadcrumbs(data);
 
         // Add each part of current path (S3 bucket plus folder hierarchy) into the breadcrumbs
@@ -578,9 +584,15 @@ permissions and limitations under the License.
             } else {
                 console.log("not folder/this document: " + data);
                 if (s3exp_config.CloudFront) {
-                    return '<a data-s3="object" href="' + object2hrefvirt(s3exp_config.CloudFront, data) + '"download="' + fullpath2filename(data) + '">' + fullpath2filename(data) + '</a>';
+                    return (
+                        '<a data-s3="object" href="' + object2hrefvirt(s3exp_config.CloudFront, data) + '"download="' + fullpath2filename(data) + '">' + fullpath2filename(data) + '</a>' +
+                        '<a href="' + object2hrefvirt(s3exp_config.CloudFront, data) + '"download="' + fullpath2filename(data) + '" target="_blank" style="float:right">download</a>'
+                    );
                 } else {
-                    return '<a data-s3="object" href="' + object2hrefvirt(s3exp_config.Bucket, data) + '"download="' + fullpath2filename(data) + '">' + fullpath2filename(data) + '</a>';
+                    return (
+                        '<a data-s3="object" href="' + object2hrefvirt(s3exp_config.Bucket, data) + '"download="' + fullpath2filename(data) + '">' + fullpath2filename(data) + '</a>' +
+                        '<a href="' + object2hrefvirt(s3exp_config.Bucket, data) + '"download="' + fullpath2filename(data) + '" target="_blank" style="float:right">download</a>'
+                    );
                 }
             }
         }
@@ -660,6 +672,29 @@ permissions and limitations under the License.
             console.log("target href=" + target.href);
             console.log("target dataset=" + JSON.stringify(target.dataset));
 
+            if (target.dataset.s3 === "object") {
+                // Fetch and preview the content for the clicked object
+                const fileUrl = new URL(target.href);
+                // fileUrl.pathname
+                fetch(fileUrl.pathname)
+                    .then(response => {
+                        if (!response.ok) throw new Error('Network response was not ok');
+                        return response.text(); // Fetch content as text
+                    })
+                    .then(content => {
+                        // Display content in the preview div
+                        try {
+                            document.getElementById('file-preview').textContent = JSON.stringify(JSON.parse(content), null, 2);
+                        } catch (error) {
+                            console.error('Failed to parse file content:', error);
+                            document.getElementById('file-preview').textContent = content
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Failed to load file content:', error);
+                        document.getElementById('file-preview').textContent = 'Error loading file preview at ' + fileUrl.pathname + error;
+                    });
+            } else 
             // If the user has clicked on a folder then navigate into that folder
             if (target.dataset.s3 === "folder") {
                 resetDepth();
